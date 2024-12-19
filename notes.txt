@@ -1,0 +1,8 @@
+Notes on progress:
+- In the AI tournament, those with the simpler BEF actually did better, even when they had the same ply depth.
+- The pattern database is not working correctly, because the AI can get to the desired pattern, but does not have the ply depth to see how to win.
+    -Need implement singular moves, increase ply depth (by a lot), include winning sequences in the pattern database
+- Some of the functions on the BEF are not actually correct, and one of the problems I had is that as I worked on it more it got worse!
+
+
+     
