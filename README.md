@@ -1,6 +1,6 @@
-### Instructions to use this program:
+# Instructions to use this program:
 
-# Parameters:
+#### Parameters:
 ```
 - first               // Computer plays first
 - second              // Computer plays second
