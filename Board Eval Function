@@ -1,0 +1,503 @@
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+public class RationalAgent {
+
+    //NOTES:
+    // _1 means it is computer, _2 means it is external player.
+    //If the _1 values are greater --> plays more aggressively.
+    //Both the computer and the opponent preform the same BEF, but the difference MIGHT be the weights that they use.
+
+
+    //DEFAULT VALUES, best ones so far:
+    private static int def_a_1 = 2;    //one marker
+    private static int def_b_1 = 50;   //two markers
+    private static int def_c_1 = 5000;  //three markers
+    private static int def_d_1 = 30;    //intersections of one marker
+    private static int def_e_1 = 2000;   //intersections of two markers
+    private static int def_f_1 = 10000;  //intersections of three markers
+    private static int def_g_1 = 20000; //number of forks
+    private static int def_h_1 = 20000;
+
+
+
+
+    private static int def_a_2 = 2;
+    private static int def_b_2 = 50;
+    private static int def_c_2 = 5000;
+    private static int def_d_2 = 30;
+    private static int def_e_2 = 2000;
+    private static int def_f_2 = 10000;
+    private static int def_g_2 = 20000;
+    private static int def_h_2 = 20000;
+
+    private static final int[] weights_1_static = {
+        def_a_1, def_b_1, def_c_1, def_d_1, def_e_1, def_f_1, def_g_1, def_h_1
+    };
+    private static final int[] weights_2_static = {
+            def_a_2, def_b_2, def_c_2, def_d_2, def_e_2, def_f_2, def_g_2, def_h_2
+    };
+
+
+
+    private int plies;
+    private Player player;
+    private int[] weights_1;
+    private int[] weights_2;
+
+
+    //create second constructor here that has the weights passed into it.
+    public RationalAgent(Player player, int plies, int[] weights_1){
+        this.player = player;
+        this.plies = plies;
+        this.weights_1 = weights_1;
+        this.weights_2 = weights_1;
+    }
+
+
+    //These two are the default constructors
+    public RationalAgent(Player player, int plies){
+        this(player, plies,  weights_1_static);
+    }
+
+    public RationalAgent() {
+        this(Player.O, 4);
+    }
+
+
+
+    public int getMove(Board board){
+        long startTime = System.currentTimeMillis();
+        final int TIME_LIMIT = 15000; // 15 seconds in milliseconds
+
+
+        Board bestBoard = null;
+        int best_value = Integer.MIN_VALUE;
+        Board first = null;
+        int alpha = Integer.MIN_VALUE;
+        int beta = Integer.MAX_VALUE;
+
+        for (Board b : board){
+            if (System.currentTimeMillis() - startTime >= TIME_LIMIT) {
+                System.out.println("Time limit exceeded, returning best move so far.");
+                break;
+            }
+            first = b;
+            int current_value = MINIMAX(b, plies -1, false, alpha, beta);
+            if (current_value > best_value){
+                best_value = current_value;
+                bestBoard = b;
+                alpha = Math.max(alpha, best_value);
+            } else if (current_value == best_value){
+                if (Math.random() < 0.5) {
+                    bestBoard = b;
+                }
+            }
+        }
+        System.out.println(best_value);
+        if (bestBoard == null){
+            System.out.println("----Opponent has forced win----");
+            return board.move(first);
+        }
+
+        return board.move(bestBoard);
+    }
+
+
+    public int MINIMAX(Board board, int depth, Boolean isMax, int alpha, int beta){
+        if (depth == 0 || board.done()){
+            return board_evaluation(board, depth);
+        }
+
+        if (isMax) {
+            int max_val = Integer.MIN_VALUE;
+            for (Board b : board){  //Changed it back to true.
+                int current = MINIMAX(b, depth - 1, false, alpha, beta);
+                max_val = Math.max(current, max_val);
+                alpha = Math.max(alpha, max_val);
+                if (alpha >= beta) {
+                    break;
+                }
+            }
+            return max_val;
+        } else {
+            int min_val = Integer.MAX_VALUE;
+            for (Board b : board){
+                int current = MINIMAX(b, depth - 1, true, alpha, beta);
+                min_val = Math.min(current, min_val);
+                beta = Math.min(beta, min_val);
+                if (alpha >= beta) {
+                    break;
+                }
+            }
+            return min_val;
+        }
+    }
+
+
+
+    // Array fields to be reused across calls
+    private int[] playerOneMarkerLines = new int[76];
+    private int[] playerTwoMarkerLines = new int[76];
+    private int[] playerThreeMarkerLines = new int[76];
+    private int[] oppOneMarkerLines = new int[76];
+    private int[] oppTwoMarkerLines = new int[76];
+    private int[] oppThreeMarkerLines = new int[76];
+
+    // Marker count fields to be reused across calls
+    private int playerOneMarkerCount;
+    private int playerTwoMarkerCount;
+    private int playerThreeMarkerCount;
+    private int oppOneMarkerCount;
+    private int oppTwoMarkerCount;
+    private int oppThreeMarkerCount;
+    private int playerForks;
+    private int oppForks;
+    private int playerForcedWins;
+    private int oppForcedWins;
+
+    private void clear_values() {
+        Arrays.fill(playerOneMarkerLines, 0);
+        Arrays.fill(playerTwoMarkerLines, 0);
+        Arrays.fill(playerThreeMarkerLines, 0);
+        Arrays.fill(oppOneMarkerLines, 0);
+        Arrays.fill(oppTwoMarkerLines, 0);
+        Arrays.fill(oppThreeMarkerLines, 0);
+
+        playerOneMarkerCount = 0;
+        playerTwoMarkerCount = 0;
+        playerThreeMarkerCount = 0;
+        oppOneMarkerCount = 0;
+        oppTwoMarkerCount = 0;
+        oppThreeMarkerCount = 0;
+        playerForks = 0;
+        oppForks = 0;
+        playerForcedWins = 0;
+        oppForcedWins = 0;
+    }
+
+
+    private int board_evaluation(Board board, int depth) {
+        Player board_winner = board.winner();
+
+        if (board_winner != null) {
+            return (board_winner == this.player) ? Integer.MAX_VALUE - depth : Integer.MIN_VALUE + depth;
+        }
+
+        long playerBoard = board.getBoard(this.player);
+        long oppBoard = board.getBoard(this.player.other());
+
+        Player turn = board.turn();
+
+        // Populate marker arrays and counts
+        for (int i = 0; i < Line.lines.length; i++) {
+            Line line = Line.lines[i];
+            long line_positions = line.positions();
+
+            if ((line_positions & oppBoard) == 0) {
+                int pCount = Bit.countOnes(playerBoard & line_positions);
+                switch (pCount) {
+                    case 1: playerOneMarkerLines[playerOneMarkerCount++] = i; break;
+                    case 2: playerTwoMarkerLines[playerTwoMarkerCount++] = i; break;
+                    case 3: playerThreeMarkerLines[playerThreeMarkerCount++] = i; break;
+                }
+            }
+
+            if ((line_positions & playerBoard) == 0) {
+                int oCount = Bit.countOnes(oppBoard & line_positions);
+                switch (oCount) {
+                    case 1: oppOneMarkerLines[oppOneMarkerCount++] = i; break;
+                    case 2: oppTwoMarkerLines[oppTwoMarkerCount++] = i; break;
+                    case 3: oppThreeMarkerLines[oppThreeMarkerCount++] = i; break;
+                }
+            }
+        }
+
+        //Automatic Loosing Situation
+        if ((oppThreeMarkerCount > 0) && turn != this.player) {
+            clear_values();
+            return Integer.MIN_VALUE + depth;
+        }
+
+        //Automatic winning situation.
+        if ((playerThreeMarkerCount > 0) && turn == this.player) {
+            clear_values();
+            return Integer.MAX_VALUE - depth;
+        }
+
+        // Calculate intersections
+        int numOnesIntersectionsComputer = countIntersections(playerOneMarkerLines, playerOneMarkerCount);
+        int numTwosIntersectionsComputer = countIntersections(playerTwoMarkerLines, playerTwoMarkerCount);
+        int numThreesIntersectionsComputer = countIntersections(playerThreeMarkerLines, playerThreeMarkerCount);
+
+        int numOnesIntersectionsOpponent = countIntersections(oppOneMarkerLines, oppOneMarkerCount);
+        int numTwosIntersectionsOpponent = countIntersections(oppTwoMarkerLines, oppTwoMarkerCount);
+        int numThreesIntersectionsOpponent = countIntersections(oppThreeMarkerLines, oppThreeMarkerCount);
+
+        //Calculate then number of forks:
+        num_two_forks(playerTwoMarkerLines, playerTwoMarkerCount, playerThreeMarkerLines, playerThreeMarkerCount, board, player);
+        num_two_forks(oppTwoMarkerLines, oppTwoMarkerCount, oppThreeMarkerLines, oppThreeMarkerCount, board, player.other());
+
+
+        //Calculate number of forced wins:
+        num_forced_wins(board);
+
+        //If it is your turn, enhance certain paramters: if it your turn on a fork you win?
+        if (turn == player){
+            if (playerForks > 0){
+                clear_values();
+                return Integer.MAX_VALUE - depth;
+            }
+        }
+        if (turn != player){
+            if (oppForks > 0){
+                clear_values();
+                return Integer.MIN_VALUE + depth;
+            }
+        }
+
+        // Compute scores
+        int computer_score = weights_1[0] * playerOneMarkerCount
+                + weights_1[1] * playerTwoMarkerCount
+                + weights_1[2] * playerThreeMarkerCount
+                + weights_1[3] * numOnesIntersectionsComputer
+                + weights_1[4] * numTwosIntersectionsComputer
+                + weights_1[5] * numThreesIntersectionsComputer
+                + weights_1[6] * playerForks
+                + weights_1[7] * playerForcedWins;
+
+        int opponent_score = weights_2[0] * oppOneMarkerCount
+                + weights_2[1] * oppTwoMarkerCount
+                + weights_2[2] * oppThreeMarkerCount
+                + weights_2[3] * numOnesIntersectionsOpponent
+                + weights_2[4] * numTwosIntersectionsOpponent
+                + weights_2[5] * numThreesIntersectionsOpponent
+                + weights_2[6] * oppForks
+                + weights_2[7] * oppForcedWins;
+
+        int score = computer_score - opponent_score;
+
+        clear_values();
+        return score;
+    }
+
+
+    private void num_two_forks(int[] twoMarkerLines, int twoCount, int[] threeMarkerLines, int threeCount, Board board, Player player) {
+        long playerBoard = board.getBoard(player);
+        long oppBoard = board.getBoard(player.other());
+
+        for (int i = 0; i < twoCount; i++) {
+            int twoLineIndex = twoMarkerLines[i];
+            if (twoLineIndex < 0 || twoLineIndex >= Line.lines.length) continue;
+            long line_one_positions = Line.lines[twoLineIndex].positions();
+
+            for (int j = 0; j < threeCount; j++) {
+                int threeLineIndex = threeMarkerLines[j];
+                if (threeLineIndex < 0 || threeLineIndex >= Line.lines.length) continue;
+                long line_two_positions = Line.lines[threeLineIndex].positions();
+
+                //Need to actually gather the lines from the board WTF:
+
+                long cellsLineOne = line_one_positions & (playerBoard | oppBoard);
+                long cellsLineTwo = line_two_positions & (playerBoard | oppBoard);
+
+                // Check if there's a shared empty cell in both lines
+                long intersection = cellsLineOne & cellsLineTwo;
+                if (intersection != 0) {
+                    if (player == this.player){
+                        playerForks++;
+                    } else if (player == this.player.other()){
+                        oppForks++;
+                    }
+
+                }
+            }
+        }
+    }
+
+    private void num_forced_wins(Board board){
+        long playerBoard = board.getBoard(player);
+        long oppBoard = board.getBoard(player.other());
+
+        for (Plane fwPlane : Plane.forced_wins) {
+            long fwPositions = fwPlane.positions();
+
+            Plane parentPlane = null;
+            for (Plane p : Plane.planes) {
+
+                if ((p.positions() & fwPositions) == fwPositions) {
+                    parentPlane = p;
+                    break;
+                }
+            }
+            if (parentPlane == null) {
+                continue;
+            }
+
+            long fullPlanePositions = parentPlane.positions();
+
+            long playerPositionsInFullPlane = fullPlanePositions & playerBoard;
+            long oppPositionsInFullPlane = fullPlanePositions & oppBoard;
+
+            //REquired Conditions for it to actually be a winning plane.
+            // Player occupies all the forced-win positions
+            // Opponent does not occupy those forced positions
+            // No extra pieces in that plane beyond the forced triple:
+            if (((fwPositions & playerBoard) == fwPositions)
+                    && ((fwPositions & oppBoard) == 0)
+                    && ((playerPositionsInFullPlane | oppPositionsInFullPlane) == fwPositions)) {
+                playerForcedWins++;
+            }
+
+            //Similarly for the opponent:
+            if (((fwPositions & oppBoard) == fwPositions)
+                    && ((fwPositions & playerBoard) == 0)
+                    && ((playerPositionsInFullPlane | oppPositionsInFullPlane) == fwPositions)) {
+                oppForcedWins++;
+            }
+        }
+    }
+
+
+
+
+
+    private int countIntersections(int[] lineIndices, int count) {
+        int intersections = 0;
+        for (int i = 0; i < count; i++) {
+            int li = lineIndices[i];
+            for (int j = i + 1; j < count; j++) {
+                int lj = lineIndices[j];
+                if (Line.intersectionMap[li][lj]) {
+                    intersections++;
+                }
+            }
+        }
+        return intersections;
+    }
+}
+
+
+
+
+
+
+
+
+private int board_evaluation(Board board, int depth) {
+        Player board_winner = board.winner();
+
+        long playerBoard = board.getBoard(this.player);
+        long oppBoard = board.getBoard(this.player.other());
+
+        // Count how many moves have been played so far:
+        int movesPlayed = Bit.countOnes(playerBoard) + Bit.countOnes(oppBoard);
+
+        if (board_winner != null) {
+
+            int penaltyFactor = 1000;
+            int penalty = movesPlayed * penaltyFactor;
+            return (board_winner == this.player)
+                    ? (Integer.MAX_VALUE - penalty)
+                    : (Integer.MIN_VALUE + penalty);
+        }
+
+
+        Player turn = board.turn();
+
+        // Populate marker arrays and counts
+        for (int i = 0; i < Line.lines.length; i++) {
+            Line line = Line.lines[i];
+            long line_positions = line.positions();
+
+            if ((line_positions & oppBoard) == 0) {
+                int pCount = Bit.countOnes(playerBoard & line_positions);
+                switch (pCount) {
+                    case 1: playerOneMarkerLines[playerOneMarkerCount++] = i; break;
+                    case 2: playerTwoMarkerLines[playerTwoMarkerCount++] = i; break;
+                    case 3: playerThreeMarkerLines[playerThreeMarkerCount++] = i; break;
+                }
+            }
+
+            if ((line_positions & playerBoard) == 0) {
+                int oCount = Bit.countOnes(oppBoard & line_positions);
+                switch (oCount) {
+                    case 1: oppOneMarkerLines[oppOneMarkerCount++] = i; break;
+                    case 2: oppTwoMarkerLines[oppTwoMarkerCount++] = i; break;
+                    case 3: oppThreeMarkerLines[oppThreeMarkerCount++] = i; break;
+                }
+            }
+        }
+
+        //Automatic Loosing Situation
+        if ((oppThreeMarkerCount > 0) && turn != this.player) {
+            oppThreeMarkerCount = 5*oppThreeMarkerCount;
+        }
+
+        //Automatic winning situation.
+        if ((playerThreeMarkerCount > 0) && turn == this.player) {
+            playerThreeMarkerCount = 5*playerThreeMarkerCount;
+
+        }
+
+        // Calculate intersections
+        int numOnesIntersectionsComputer = countIntersections(playerOneMarkerLines, playerOneMarkerCount);
+        int numTwosIntersectionsComputer = countIntersections(playerTwoMarkerLines, playerTwoMarkerCount);
+        int numThreesIntersectionsComputer = countIntersections(playerThreeMarkerLines, playerThreeMarkerCount);
+
+        int numOnesIntersectionsOpponent = countIntersections(oppOneMarkerLines, oppOneMarkerCount);
+        int numTwosIntersectionsOpponent = countIntersections(oppTwoMarkerLines, oppTwoMarkerCount);
+        int numThreesIntersectionsOpponent = countIntersections(oppThreeMarkerLines, oppThreeMarkerCount);
+
+        //Calculate then number of forks:
+        num_two_forks(playerTwoMarkerLines, playerTwoMarkerCount, playerThreeMarkerLines, playerThreeMarkerCount, board, player);
+        num_two_forks(oppTwoMarkerLines, oppTwoMarkerCount, oppThreeMarkerLines, oppThreeMarkerCount, board, player.other());
+
+
+        //Calculate number of forced wins:
+       // num_forced_wins(board);
+
+        //If it is your turn, enhance certain paramters: if it your turn on a fork you win?
+//        if (turn == player){
+//            if (playerForks > 0){
+//                playerForks = 5*playerForks;
+//            }
+//        }
+//        if (turn != player){
+//            if (oppForks > 0){
+//                oppForks = 5*oppForks;
+//            }
+//        }
+
+        // Compute scores
+        int computer_score = weights_1[0] * playerOneMarkerCount
+                + weights_1[1] * playerTwoMarkerCount
+                + weights_1[2] * playerThreeMarkerCount
+                + weights_1[3] * numOnesIntersectionsComputer
+                + weights_1[4] * numTwosIntersectionsComputer
+                + weights_1[5] * numThreesIntersectionsComputer
+                + weights_1[6] * playerForks
+                + weights_1[7] * playerForcedWins;
+
+        int opponent_score = weights_2[0] * oppOneMarkerCount
+                + weights_2[1] * oppTwoMarkerCount
+                + weights_2[2] * oppThreeMarkerCount
+                + weights_2[3] * numOnesIntersectionsOpponent
+                + weights_2[4] * numTwosIntersectionsOpponent
+                + weights_2[5] * numThreesIntersectionsOpponent
+                + weights_2[6] * oppForks
+                + weights_2[7] * oppForcedWins;
+
+        int score = computer_score - opponent_score;
+
+        clear_values();
+        return score;
+    }
+
+
+
+
+
+
+
