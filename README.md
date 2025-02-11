@@ -1,6 +1,6 @@
-### Instructions to use this program: 
+### Instructions to use this program: \n
 
-# Paramters: 
--first //Computer plays first 
--second //Computer plays second 
+# Paramters: \n
+-first //Computer plays first \n
+-second //Computer plays second \n
 -plies <int> //Number of plies to be used. 
